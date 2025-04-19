@@ -1,5 +1,8 @@
 // Services/NetworkScannerService.cs
 using System.Management;
+using System.Net;
+using System.Net.NetworkInformation;
+using System.Net.Sockets;
 using NetworkScanner.API.Models;
 
 namespace NetworkScanner.API.Services
@@ -26,6 +29,41 @@ namespace NetworkScanner.API.Services
         }
 
         /// <summary>
+        /// Determines if an IP address belongs to the local machine
+        /// </summary>
+        private bool IsLocalIpAddress(string ipAddress)
+        {
+            // Check if localhost
+            if (ipAddress.Equals("localhost", StringComparison.OrdinalIgnoreCase) || 
+                ipAddress.Equals("127.0.0.1"))
+                return true;
+
+            try
+            {
+                // Get all IP addresses assigned to local network interfaces
+                IPAddress[] localIPs = Dns.GetHostAddresses(Dns.GetHostName());
+                
+                // Parse the input IP
+                if (IPAddress.TryParse(ipAddress, out IPAddress ipToCheck))
+                {
+                    // Check if the IP exists in the local IP list
+                    foreach (IPAddress localIP in localIPs)
+                    {
+                        if (ipToCheck.Equals(localIP))
+                            return true;
+                    }
+                }
+            }
+            catch
+            {
+                // In case of any errors, assume it's not local
+                return false;
+            }
+            
+            return false;
+        }
+
+        /// <summary>
         /// Scans a Windows machine and retrieves basic system information
         /// </summary>
         public ScanResult ScanMachine(string ipAddress)
@@ -38,18 +76,35 @@ namespace NetworkScanner.API.Services
 
             try
             {
-                // Set up connection options with admin credentials for WMI
-                ConnectionOptions connectionOptions = new ConnectionOptions
+                // Check if we're scanning the local machine
+                bool isLocalMachine = IsLocalIpAddress(ipAddress);
+                
+                // Create scope differently depending on whether it's local or remote
+                ManagementScope scope;
+                
+                if (isLocalMachine)
                 {
-                    Username = _adminUsername,
-                    Password = _adminPassword,
-                    Impersonation = ImpersonationLevel.Impersonate,
-                    Authentication = AuthenticationLevel.PacketPrivacy,
-                    EnablePrivileges = true
-                };
+                    // For local machine, connect directly using root\cimv2
+                    // Note: We use the dot notation which works better for local connections
+                    scope = new ManagementScope(@"\\.\root\cimv2");
+                }
+                else
+                {
+                    // Set up connection options with admin credentials for WMI
+                    ConnectionOptions connectionOptions = new ConnectionOptions
+                    {
+                        Username = _adminUsername,
+                        Password = _adminPassword,
+                        Impersonation = ImpersonationLevel.Impersonate,
+                        Authentication = AuthenticationLevel.PacketPrivacy,
+                        EnablePrivileges = true
+                    };
 
-                // Create management scope for remote connection
-                ManagementScope scope = new ManagementScope($"\\\\{ipAddress}\\root\\cimv2", connectionOptions);
+                    // Create management scope for remote connection
+                    scope = new ManagementScope($"\\\\{ipAddress}\\root\\cimv2", connectionOptions);
+                }
+                
+                // Connect to WMI
                 scope.Connect();
 
                 // Get hostname information from the remote machine

@@ -37,3 +37,4 @@ C:\Users\artee\Documents\Code\NetworkScanner\NetworkScanner.API\obj\Debug\net8.0
 C:\Users\artee\Documents\Code\NetworkScanner\NetworkScanner.API\obj\Debug\net8.0\NetworkScanner.API.pdb
 C:\Users\artee\Documents\Code\NetworkScanner\NetworkScanner.API\obj\Debug\net8.0\NetworkScanner.API.genruntimeconfig.cache
 C:\Users\artee\Documents\Code\NetworkScanner\NetworkScanner.API\obj\Debug\net8.0\ref\NetworkScanner.API.dll
+C:\Users\artee\Documents\Code\NetworkScanner\NetworkScanner.API\obj\Debug\net8.0\NetworkScanner.API.sourcelink.json
