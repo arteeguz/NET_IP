@@ -1,0 +1,11 @@
+{
+  "Version": 1,
+  "Hash": "WGy5k5pr179om7h4eDaFkWs/cmf9B82wU9rEjku9HQo=",
+  "Source": "NetworkScanner.API",
+  "BasePath": "_content/NetworkScanner.API",
+  "Mode": "Default",
+  "ManifestType": "Build",
+  "ReferencedProjectsConfiguration": [],
+  "DiscoveryPatterns": [],
+  "Assets": []
+}
