@@ -19,10 +19,9 @@ builder.Services.AddCors(options =>
             .AllowCredentials());
 });
 
-// Register our scanner service
+// Register our scanner service with logger support
 builder.Services.AddScoped<NetworkScannerService>();
-
-// Note: We removed the authentication services as discussed
+builder.Services.AddLogging();
 
 var app = builder.Build();
 
@@ -36,7 +35,6 @@ if (app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 app.UseCors("AllowReactApp");
 
-// Note: Removed authentication/authorization middleware
 app.MapControllers();
 
 app.Run();

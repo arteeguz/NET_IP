@@ -1,6 +1,6 @@
 // src/components/ScannerForm.tsx
 import React, { useState } from 'react';
-import { Form, Button, Card, Spinner, Alert } from 'react-bootstrap';
+import { Form, Button, Card, Spinner, Alert, Badge, Accordion } from 'react-bootstrap';
 import axios from 'axios';
 
 // Define the shape of scan results from API
@@ -8,6 +8,19 @@ interface ScanResult {
   ipAddress: string;
   hostname: string;
   ramSize: string;
+  windowsVersion: string;
+  windowsRelease: string;
+  officeVersion: string;
+  machineType: string;
+  machineSku: string;
+  lastLoggedUser: string;
+  cpuInfo: string;
+  gpuInfo: string;
+  diskSize: string;
+  diskFreeSpace: string;
+  biosVersion: string;
+  macAddress: string;
+  openPorts: number[];
   status: string;
   errorMessage?: string;
 }
@@ -29,7 +42,7 @@ const ScannerForm: React.FC = () => {
       // Call the API to scan the machine
       // Note: Adjust the port to match your .NET app
       const response = await axios.post(
-        'http://localhost:5023/api/scanner/scan',
+        'http://localhost:5023/api/scanner/scan', 
         { ipAddress }
         // No auth object needed since we removed authentication
       );
@@ -82,33 +95,126 @@ const ScannerForm: React.FC = () => {
         {/* Results Display */}
         {scanResults && !error && (
           <div className="mt-4">
-            <h5>Scan Results</h5>
-            <table className="table table-bordered">
-              <thead>
-                <tr>
-                  <th>Property</th>
-                  <th>Value</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td>IP Address</td>
-                  <td>{scanResults.ipAddress}</td>
-                </tr>
-                <tr>
-                  <td>Hostname</td>
-                  <td>{scanResults.hostname}</td>
-                </tr>
-                <tr>
-                  <td>RAM Size</td>
-                  <td>{scanResults.ramSize}</td>
-                </tr>
-                <tr>
-                  <td>Status</td>
-                  <td>{scanResults.status}</td>
-                </tr>
-              </tbody>
-            </table>
+            <h5>Scan Results for {scanResults.ipAddress}</h5>
+            <Accordion defaultActiveKey="0">
+              <Accordion.Item eventKey="0">
+                <Accordion.Header>Basic Information</Accordion.Header>
+                <Accordion.Body>
+                  <table className="table table-bordered">
+                    <tbody>
+                      <tr>
+                        <td>IP Address</td>
+                        <td>{scanResults.ipAddress}</td>
+                      </tr>
+                      <tr>
+                        <td>Hostname</td>
+                        <td>{scanResults.hostname}</td>
+                      </tr>
+                      <tr>
+                        <td>Last Logged User</td>
+                        <td>{scanResults.lastLoggedUser}</td>
+                      </tr>
+                      <tr>
+                        <td>Machine Manufacturer</td>
+                        <td>{scanResults.machineType}</td>
+                      </tr>
+                      <tr>
+                        <td>Machine Model</td>
+                        <td>{scanResults.machineSku}</td>
+                      </tr>
+                      <tr>
+                        <td>Status</td>
+                        <td>{scanResults.status}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </Accordion.Body>
+              </Accordion.Item>
+              
+              <Accordion.Item eventKey="1">
+                <Accordion.Header>System Information</Accordion.Header>
+                <Accordion.Body>
+                  <table className="table table-bordered">
+                    <tbody>
+                      <tr>
+                        <td>Windows Version</td>
+                        <td>{scanResults.windowsVersion}</td>
+                      </tr>
+                      <tr>
+                        <td>Windows Release</td>
+                        <td>{scanResults.windowsRelease}</td>
+                      </tr>
+                      <tr>
+                        <td>Microsoft Office Version</td>
+                        <td>{scanResults.officeVersion}</td>
+                      </tr>
+                      <tr>
+                        <td>BIOS Version</td>
+                        <td>{scanResults.biosVersion}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </Accordion.Body>
+              </Accordion.Item>
+              
+              <Accordion.Item eventKey="2">
+                <Accordion.Header>Hardware Information</Accordion.Header>
+                <Accordion.Body>
+                  <table className="table table-bordered">
+                    <tbody>
+                      <tr>
+                        <td>CPU</td>
+                        <td>{scanResults.cpuInfo}</td>
+                      </tr>
+                      <tr>
+                        <td>RAM</td>
+                        <td>{scanResults.ramSize}</td>
+                      </tr>
+                      <tr>
+                        <td>GPU</td>
+                        <td>{scanResults.gpuInfo}</td>
+                      </tr>
+                      <tr>
+                        <td>Disk Size</td>
+                        <td>{scanResults.diskSize}</td>
+                      </tr>
+                      <tr>
+                        <td>Disk Free Space</td>
+                        <td>{scanResults.diskFreeSpace}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </Accordion.Body>
+              </Accordion.Item>
+              
+              <Accordion.Item eventKey="3">
+                <Accordion.Header>Network Information</Accordion.Header>
+                <Accordion.Body>
+                  <table className="table table-bordered">
+                    <tbody>
+                      <tr>
+                        <td>MAC Address</td>
+                        <td>{scanResults.macAddress}</td>
+                      </tr>
+                      <tr>
+                        <td>Open Ports</td>
+                        <td>
+                          {scanResults.openPorts && scanResults.openPorts.length > 0 ? (
+                            <div>
+                              {scanResults.openPorts.map(port => (
+                                <Badge bg="info" className="me-1" key={port}>{port}</Badge>
+                              ))}
+                            </div>
+                          ) : (
+                            "No open ports detected"
+                          )}
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </Accordion.Body>
+              </Accordion.Item>
+            </Accordion>
           </div>
         )}
       </Card.Body>
