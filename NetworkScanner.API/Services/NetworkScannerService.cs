@@ -724,5 +724,94 @@ namespace NetworkScanner.API.Services
 
             return result;
         }
-    }
+                /// <summary>
+        /// Scans multiple machines and returns the results
+        /// </summary>
+        /// <param name="ipAddresses">List of IP addresses to scan</param>
+        /// <param name="maxConcurrent">Maximum number of concurrent scans</param>
+        /// <param name="progress">Optional progress reporter</param>
+        /// <returns>List of scan results</returns>
+        public async Task<List<ScanResult>> ScanMachinesAsync(
+            IEnumerable<string> ipAddresses, 
+            int maxConcurrent = 10, 
+            IProgress<BatchScanResponse>? progress = null)
+        {
+            var results = new List<ScanResult>();
+            var totalIps = ipAddresses.Count();
+            var scannedIps = 0;
+            var successfulScans = 0;
+            var failedScans = 0;
+            
+            // Create a semaphore to limit concurrent operations
+            using var semaphore = new SemaphoreSlim(maxConcurrent);
+            
+            // Create a list of tasks
+            var tasks = new List<Task<ScanResult>>();
+            
+            // Create a timer to report progress every second
+            using var progressTimer = new Timer(_ => 
+            {
+                progress?.Report(new BatchScanResponse
+                {
+                    TotalIps = totalIps,
+                    ScannedIps = scannedIps,
+                    SuccessfulScans = successfulScans,
+                    FailedScans = failedScans,
+                    Results = new List<ScanResult>(results)
+                });
+            }, null, 0, 1000);
+            
+            // Start scanning each IP address
+            foreach (var ipAddress in ipAddresses)
+            {
+                // Wait for a slot in the semaphore
+                await semaphore.WaitAsync();
+                
+                // Start the scan
+                tasks.Add(Task.Run(async () => 
+                {
+                    try
+                    {
+                        // Scan the machine
+                        var result = ScanMachine(ipAddress);
+                        
+                        // Update counters
+                        Interlocked.Increment(ref scannedIps);
+                        if (result.Status == "success")
+                            Interlocked.Increment(ref successfulScans);
+                        else
+                            Interlocked.Increment(ref failedScans);
+                        
+                        // Add the result to the list
+                        lock (results)
+                        {
+                            results.Add(result);
+                        }
+                        
+                        return result;
+                    }
+                    finally
+                    {
+                        // Release the semaphore slot
+                        semaphore.Release();
+                    }
+                }));
+            }
+            
+            // Wait for all tasks to complete
+            await Task.WhenAll(tasks);
+            
+            // Report final progress
+            progress?.Report(new BatchScanResponse
+            {
+                TotalIps = totalIps,
+                ScannedIps = scannedIps,
+                SuccessfulScans = successfulScans,
+                FailedScans = failedScans,
+                Results = new List<ScanResult>(results)
+            });
+            
+            return results;
+        }
+    }  
 }

@@ -17,7 +17,7 @@ function App() {
       {/* Main Content */}
       <Container>
         <Row className="justify-content-md-center">
-          <Col md={8}>
+          <Col md={10}>
             <ScannerForm />
           </Col>
         </Row>

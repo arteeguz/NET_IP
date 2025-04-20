@@ -34,12 +34,4 @@ namespace NetworkScanner.API.Models
         public string? Status { get; set; }
         public string? ErrorMessage { get; set; }
     }
-
-    /// <summary>
-    /// Represents a request to scan a machine
-    /// </summary>
-    public class ScanRequest
-    {
-        public required string IpAddress { get; set; }
-    }
 }

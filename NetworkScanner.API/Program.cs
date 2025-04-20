@@ -21,6 +21,7 @@ builder.Services.AddCors(options =>
 
 // Register our scanner service with logger support
 builder.Services.AddScoped<NetworkScannerService>();
+builder.Services.AddScoped<IpRangeService>();
 builder.Services.AddLogging();
 
 var app = builder.Build();
