@@ -21,6 +21,7 @@ interface ScanResult {
   openPorts: number[];
   status: string;
   errorMessage?: string;
+  scanTimeMs?: number;  // Add this line
 }
 
 interface ScanResultDetailProps {
@@ -54,6 +55,10 @@ const ScanResultDetail: React.FC<ScanResultDetailProps> = ({ result }) => {
               <tr>
                 <td><strong>Machine Model</strong></td>
                 <td>{result.machineSku || 'N/A'}</td>
+              </tr>
+              <tr>
+                <td><strong>Scan Time</strong></td>
+                <td>{result.scanTimeMs ? `${result.scanTimeMs} ms` : 'N/A'}</td>
               </tr>
               <tr>
                 <td><strong>Status</strong></td>

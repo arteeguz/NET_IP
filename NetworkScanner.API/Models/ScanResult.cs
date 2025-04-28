@@ -33,5 +33,8 @@ namespace NetworkScanner.API.Models
         // Scan status information
         public string? Status { get; set; }
         public string? ErrorMessage { get; set; }
+        
+        // Performance metrics
+        public long ScanTimeMs { get; set; }
     }
 }

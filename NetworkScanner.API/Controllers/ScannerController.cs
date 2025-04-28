@@ -27,7 +27,7 @@ namespace NetworkScanner.API.Controllers
         /// Endpoint to scan a single machine by IP address
         /// </summary>
         [HttpPost("scan")]
-        public IActionResult ScanMachine([FromBody] ScanRequest request)
+        public async Task<IActionResult> ScanMachine([FromBody] ScanRequest request)
         {
             if (string.IsNullOrEmpty(request.IpAddress))
             {
@@ -35,7 +35,7 @@ namespace NetworkScanner.API.Controllers
             }
 
             _logger.LogInformation($"Scanning machine at IP: {request.IpAddress}");
-            var result = _scannerService.ScanMachine(request.IpAddress);
+            var result = await _scannerService.ScanMachineAsync(request.IpAddress);
             
             return Ok(result);
         }

@@ -4,7 +4,7 @@ import { Card, Alert, Spinner, Modal, Button } from 'react-bootstrap';
 import axios from 'axios';
 import IpInputForm from './IpInputForm';
 import ScanResultsGrid from './ScanResultsGrid';
-import ScanResultDetail from './ScanResultDetail'; // We'll create this next
+import ScanResultDetail from './ScanResultDetail';
 
 // Define the shape of scan results from API
 interface ScanResult {
@@ -26,6 +26,7 @@ interface ScanResult {
   openPorts: number[];
   status: string;
   errorMessage?: string;
+  scanTimeMs?: number;  // Add this line
 }
 
 interface BatchScanResponse {
@@ -125,6 +126,38 @@ const ScannerForm: React.FC = () => {
               <span className="visually-hidden">Loading...</span>
             </Spinner>
             <p className="mt-2">Scanning in progress...</p>
+          </div>
+        )}
+
+        {/* Progress Bar for Batch Scans */}
+        {loading && progress && (
+          <div className="mt-4 mb-4">
+            <div className="progress" style={{ height: '25px' }}>
+              <div 
+                className="progress-bar" 
+                role="progressbar" 
+                style={{ width: `${Math.round((progress.scanned / progress.total) * 100)}%` }}
+                aria-valuenow={Math.round((progress.scanned / progress.total) * 100)} 
+                aria-valuemin={0} 
+                aria-valuemax={100}>
+                {Math.round((progress.scanned / progress.total) * 100)}%
+              </div>
+            </div>
+            <div className="d-flex justify-content-between mt-2">
+              <div><strong>Scanning:</strong> {progress.scanned} of {progress.total} IP addresses</div>
+              <div>
+                <span className="badge bg-success me-2">Success: {progress.successful}</span>
+                <span className="badge bg-danger">Failed: {progress.failed}</span>
+              </div>
+            </div>
+            {progress.scanned > 0 && (
+              <div className="mt-2">
+                <strong>Average scan time:</strong> {Math.round(scanResults
+                  .filter(r => r.scanTimeMs)
+                  .reduce((sum, r) => sum + (r.scanTimeMs || 0), 0) / 
+                  (scanResults.filter(r => r.scanTimeMs).length || 1))} ms per IP
+              </div>
+            )}
           </div>
         )}
         

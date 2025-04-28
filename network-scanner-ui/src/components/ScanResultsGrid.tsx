@@ -21,6 +21,7 @@ interface ScanResult {
   openPorts: number[];
   status: string;
   errorMessage?: string;
+  scanTimeMs?: number;  // Add this line
 }
 
 interface ScanResultsGridProps {
@@ -32,7 +33,7 @@ interface ScanResultsGridProps {
     successful: number;
     failed: number;
   };
-  onViewDetails: (result: ScanResult) => void; // Add this prop to fix the error
+  onViewDetails: (result: ScanResult) => void;
 }
 
 const ScanResultsGrid: React.FC<ScanResultsGridProps> = ({ results, loading, progress, onViewDetails }) => {
@@ -67,6 +68,14 @@ const ScanResultsGrid: React.FC<ScanResultsGridProps> = ({ results, loading, pro
       );
     })
     .sort((a, b) => {
+      // Special handling for scanTimeMs which is a number
+      if (sortField === 'scanTimeMs') {
+        const aValue = a[sortField] as number || 0;
+        const bValue = b[sortField] as number || 0;
+        return sortDirection === 'asc' ? aValue - bValue : bValue - aValue;
+      }
+
+      // Default string sorting
       const aValue = a[sortField] as string || '';
       const bValue = b[sortField] as string || '';
       
@@ -129,17 +138,20 @@ const ScanResultsGrid: React.FC<ScanResultsGridProps> = ({ results, loading, pro
             <th onClick={() => handleSort('status')} className="sortable">
               Status {sortField === 'status' && (sortDirection === 'asc' ? '▲' : '▼')}
             </th>
+            <th onClick={() => handleSort('scanTimeMs')} className="sortable">
+              Scan Time {sortField === 'scanTimeMs' && (sortDirection === 'asc' ? '▲' : '▼')}
+            </th>
             <th>Actions</th>
           </tr>
         </thead>
         <tbody>
           {loading && filteredResults.length === 0 ? (
             <tr>
-              <td colSpan={8} className="text-center">Loading...</td>
+              <td colSpan={9} className="text-center">Loading...</td>
             </tr>
           ) : filteredResults.length === 0 ? (
             <tr>
-              <td colSpan={8} className="text-center">No results found</td>
+              <td colSpan={9} className="text-center">No results found</td>
             </tr>
           ) : (
             filteredResults.map((result, index) => (
@@ -156,6 +168,9 @@ const ScanResultsGrid: React.FC<ScanResultsGridProps> = ({ results, loading, pro
                   <Badge bg={result.status === 'success' ? 'success' : 'danger'}>
                     {result.status}
                   </Badge>
+                </td>
+                <td>
+                  {result.scanTimeMs ? `${result.scanTimeMs} ms` : 'N/A'}
                 </td>
                 <td>
                   <Button size="sm" variant="info" onClick={() => onViewDetails(result)}>
