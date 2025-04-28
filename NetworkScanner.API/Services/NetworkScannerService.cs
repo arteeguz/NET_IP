@@ -14,7 +14,7 @@ namespace NetworkScanner.API.Services
         private readonly string _adminUsername;
         private readonly string _adminPassword;
         private readonly ILogger<NetworkScannerService> _logger;
-        private readonly int _defaultMaxConcurrent = 25; // Increased from 10 to 25
+        private readonly int _defaultMaxConcurrent = 15; // Reduced from 25 for better reliability
 
         // Ports to scan for common services
         private readonly int[] _portsToScan = new int[] 
@@ -600,7 +600,6 @@ namespace NetworkScanner.API.Services
             return openPorts;
         }
 
-        // Find the ScanMachine method and replace it with this async version
         public async Task<ScanResult> ScanMachineAsync(string ipAddress)
         {
             var result = new ScanResult
@@ -638,7 +637,7 @@ namespace NetworkScanner.API.Services
                         Impersonation = ImpersonationLevel.Impersonate,
                         Authentication = AuthenticationLevel.PacketPrivacy,
                         EnablePrivileges = true,
-                        Timeout = TimeSpan.FromSeconds(5) // Add timeout to prevent hanging
+                        Timeout = TimeSpan.FromSeconds(10) // Increase from 5 to 10 seconds
                     };
 
                     // Create management scope for remote connection
@@ -647,88 +646,78 @@ namespace NetworkScanner.API.Services
                 
                 // Connect to WMI with timeout
                 var connectTask = Task.Run(() => {
-                    try { scope.Connect(); return true; }
-                    catch { return false; }
+                    try { 
+                        scope.Connect(); 
+                        return true; 
+                    }
+                    catch (Exception ex) {
+                        _logger.LogWarning($"WMI connection to {ipAddress} failed: {ex.Message}");
+                        return false; 
+                    }
                 });
                 
-                // Timeout after 5 seconds
-                if (await Task.WhenAny(connectTask, Task.Delay(5000)) != connectTask || !await connectTask)
+                // Timeout after 10 seconds (increased from 5)
+                if (await Task.WhenAny(connectTask, Task.Delay(10000)) != connectTask || !await connectTask)
                 {
                     throw new TimeoutException("Connection to WMI timed out");
                 }
-                
-                // Create tasks for parallel operations
-                var tasks = new List<Task>();
-                
-                // Task for port scanning (can run independently)
-                var portsTask = Task.Run(() => { result.OpenPorts = ScanOpenPorts(ipAddress); });
-                tasks.Add(portsTask);
-                
-                // Task for main WMI query
-                var wmiTask = Task.Run(() => {
-                    try {
-                        // Consolidate queries to reduce WMI calls
-                        var query = new ObjectQuery(
-                            "SELECT CS.Name, CS.TotalPhysicalMemory, CS.Manufacturer, " +
-                            "OS.Caption, OS.Version, OS.BuildNumber, " +
-                            "OS.RegisteredUser " +
-                            "FROM Win32_ComputerSystem AS CS, Win32_OperatingSystem AS OS");
-                        
-                        using var searcher = new ManagementObjectSearcher(scope, query);
+
+                // SEQUENTIAL APPROACH FOR CORE DATA
+                // Get basic information first (hostname, RAM, etc) sequentially for reliability
+                try {
+                    // Get hostname information
+                    ObjectQuery hostnameQuery = new ObjectQuery("SELECT Name FROM Win32_ComputerSystem");
+                    using (ManagementObjectSearcher searcher = new ManagementObjectSearcher(scope, hostnameQuery))
+                    {
                         foreach (ManagementObject obj in searcher.Get())
                         {
-                            // Process computer system info
-                            result.Hostname = obj["Name"]?.ToString();
-                            
-                            // Process RAM
+                            result.Hostname = obj["Name"]?.ToString() ?? "Unknown";
+                            break;
+                        }
+                    }
+                    
+                    // Get RAM size information
+                    ObjectQuery ramQuery = new ObjectQuery("SELECT TotalPhysicalMemory FROM Win32_ComputerSystem");
+                    using (ManagementObjectSearcher searcher = new ManagementObjectSearcher(scope, ramQuery))
+                    {
+                        foreach (ManagementObject obj in searcher.Get())
+                        {
                             if (obj["TotalPhysicalMemory"] != null && ulong.TryParse(obj["TotalPhysicalMemory"].ToString(), out ulong totalMemoryBytes))
                             {
                                 double totalMemoryGB = totalMemoryBytes / (1024.0 * 1024.0 * 1024.0);
                                 result.RamSize = $"{totalMemoryGB:F2} GB";
                             }
-                            
-                            // Process manufacturer
-                            result.MachineType = obj["Manufacturer"]?.ToString() ?? "Unknown";
-                            
-                            // Process OS info
-                            string caption = obj["Caption"]?.ToString() ?? "Unknown";
-                            if (caption.Contains("Windows 11"))
-                            {
-                                result.WindowsVersion = "Windows 11";
-                            }
-                            else if (caption.Contains("Windows 10"))
-                            {
-                                result.WindowsVersion = "Windows 10";
-                            }
-                            else if (caption.Contains("Windows Server"))
-                            {
-                                result.WindowsVersion = caption;
-                            }
-                            else
-                            {
-                                result.WindowsVersion = caption;
-                            }
-                            
-                            // Process last logged user
-                            result.LastLoggedUser = obj["RegisteredUser"]?.ToString() ?? "Unknown";
-                            
                             break;
                         }
                     }
-                    catch (Exception ex) {
-                        _logger.LogWarning($"Error in main WMI query: {ex.Message}");
-                    }
-                });
-                tasks.Add(wmiTask);
+                    
+                    // Get Windows version and release information
+                    var (windowsVersion, windowsRelease) = GetWindowsInfo(scope);
+                    result.WindowsVersion = windowsVersion;
+                    result.WindowsRelease = windowsRelease;
+                    
+                    // Get machine type and model
+                    var (machineType, machineSku) = GetMachineInfo(scope);
+                    result.MachineType = machineType;
+                    result.MachineSku = machineSku;
+                    
+                    // Get Office version
+                    result.OfficeVersion = GetOfficeVersion(machineName);
+                }
+                catch (Exception ex) {
+                    _logger.LogWarning($"Error getting basic information: {ex.Message}");
+                }
                 
-                // Add other independent WMI queries as separate tasks
+                // PARALLEL APPROACH FOR NON-CRITICAL DATA
+                // Run remaining operations in parallel
+                var tasks = new List<Task>();
+                        
+                // Add other independent queries as separate tasks
                 tasks.Add(Task.Run(() => {
                     try {
-                        var (machineType, machineSku) = GetMachineInfo(scope);
-                        result.MachineType = machineType;
-                        result.MachineSku = machineSku;
+                        result.LastLoggedUser = GetLastLoggedUser(scope);
                     } catch (Exception ex) {
-                        _logger.LogWarning($"Error getting machine info: {ex.Message}");
+                        _logger.LogWarning($"Error getting last logged user: {ex.Message}");
                     }
                 }));
                 
@@ -774,8 +763,16 @@ namespace NetworkScanner.API.Services
                     }
                 }));
                 
+                tasks.Add(Task.Run(() => {
+                    try {
+                        result.OpenPorts = ScanOpenPorts(ipAddress);
+                    } catch (Exception ex) {
+                        _logger.LogWarning($"Error scanning ports: {ex.Message}");
+                    }
+                }));
+                
                 // Wait for all tasks to complete with a timeout
-                var timeoutTask = Task.Delay(15000); // 15 second timeout
+                var timeoutTask = Task.Delay(20000); // Increased from 15 to 20 seconds
                 if (await Task.WhenAny(Task.WhenAll(tasks), timeoutTask) == timeoutTask)
                 {
                     _logger.LogWarning($"Some tasks timed out for {ipAddress}");
@@ -808,7 +805,7 @@ namespace NetworkScanner.API.Services
             return ScanMachineAsync(ipAddress).GetAwaiter().GetResult();
         }
 
-        // Replace the existing ScanMachinesAsync method with this improved version
+        // ScanMachinesAsync method 
         public async Task<List<ScanResult>> ScanMachinesAsync(
             IEnumerable<string> ipAddresses, 
             int maxConcurrent = 0, // Changed default to 0 to use _defaultMaxConcurrent
